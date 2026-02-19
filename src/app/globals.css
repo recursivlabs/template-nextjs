@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #10B981;
+  --bg: #0a0a0a;
+  --fg: #fafafa;
+  --border: #262626;
+  --muted: #737373;
+  --card: #141414;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+pre,
+code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
