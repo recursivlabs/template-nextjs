@@ -6,12 +6,30 @@ import { Recursiv } from '@recursiv/sdk';
 import { createAuthedSdk, getSessionKey, SESSION_COOKIE } from './recursiv';
 
 const ORG_ID = process.env.RECURSIV_ORG_ID;
-const ADMIN_API_KEY = process.env.RECURSIV_ADMIN_API_KEY;
 const BASE_URL = process.env.RECURSIV_API_BASE_URL || 'https://api.recursiv.io/api/v1';
 const BASE_ORIGIN = BASE_URL.replace(/\/api\/v1$/, '');
 
-// Scopes the per-user API key gets when a user signs up / in.
-// Match this to the resources your app actually uses. Add scopes as you add features.
+// Scopes the per-user API key gets at sign-up / sign-in.
+//
+// SECURITY NOTE on `databases:*` and `storage:*`:
+// These are project-level scopes. With them on a user's key, the user could
+// (in principle) bypass the server's per-user scoping (the `WHERE user_id`
+// guard in lib/db.ts, the `users/${user_id}/...` prefix in lib/storage.ts)
+// by extracting their key from devtools and running raw SQL or listing all
+// objects directly against the API.
+//
+// For a SHARED-DATA app (Twitter-style social) this is fine — members are
+// expected to see each other's content. For a PRIVATE-DATA app (CRM, internal
+// tool) this is a leak.
+//
+// The proper fix: server actions hold a separate `RECURSIV_PROJECT_KEY` env
+// var (a project-bounded admin key, auto-injected by `provision_app` once
+// that platform feature lands) and use it for DB/storage ops. The user's
+// key gets ONLY identity + social scopes.
+//
+// Until then we keep the broader scopes so the template's /notes and /upload
+// pages work end-to-end. Audit and tighten before shipping a CRM or any app
+// with private user data.
 const USER_KEY_SCOPES = [
   'users:read',
   'posts:read', 'posts:write',
@@ -20,10 +38,11 @@ const USER_KEY_SCOPES = [
   'agents:read', 'agents:write',
   'tags:read', 'tags:write',
   'commands:read', 'commands:write',
-  'storage:read', 'storage:write',
-  'organizations:read', 'organizations:write',
-  'databases:read', 'databases:write',
+  'organizations:read',
   'memory:read', 'memory:write',
+  // ⚠️  Tighten when shared-org has private user data — see note above.
+  'databases:read', 'databases:write',
+  'storage:read', 'storage:write',
 ];
 
 export type SessionUser = {
@@ -43,8 +62,14 @@ function setSessionCookie(token: string) {
   });
 }
 
+// TODO: once @recursiv/sdk@0.3.5 lands on npm (Origin header fix), replace
+// the fetch-based flow below with a single call:
+//   const r = new Recursiv({ allowNoKey: true });
+//   const result = await r.auth.signUpAndCreateKey(input, { scopes, organizationId });
+// Until then we hit the endpoints directly with explicit Origin headers.
+
 async function authedFetch(path: string, body: unknown, headers: Record<string, string> = {}) {
-  const res = await fetch(`${BASE_ORIGIN}${path}`, {
+  return fetch(`${BASE_ORIGIN}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -53,25 +78,6 @@ async function authedFetch(path: string, body: unknown, headers: Record<string, 
     },
     body: JSON.stringify(body),
   });
-  return res;
-}
-
-/**
- * After Better Auth creates the user, add them to the app's shared org using
- * the admin API key. This is the ONLY server-side use of the admin key — every
- * other SDK call uses the user's per-user key. Without this step, the per-user
- * api-key creation 403s with `not_org_member`.
- */
-async function addNewUserToOrg(userId: string): Promise<void> {
-  if (!ADMIN_API_KEY) {
-    throw new Error(
-      'RECURSIV_ADMIN_API_KEY env var is not set. The signup flow needs an admin key ' +
-      'to add new users to the app org. Get one from your Recursiv org settings.',
-    );
-  }
-  if (!ORG_ID) throw new Error('RECURSIV_ORG_ID env var is not set.');
-  const admin = new Recursiv({ apiKey: ADMIN_API_KEY });
-  await admin.organizations.addMember(ORG_ID, { user_id: userId, role: 'member' });
 }
 
 async function createUserApiKey(sessionToken: string): Promise<string> {
@@ -109,16 +115,15 @@ export async function signUp(input: { name: string; email: string; password: str
   }
   const data = await res.json();
   const token = data.token || data.session?.token;
-  const userId = data.user?.id;
-  if (!token || !userId) throw new Error('Sign up response missing token or user id.');
+  if (!token) throw new Error('Sign up response missing token.');
 
-  // Add the new user to the app's shared org so their per-user key can be org-scoped.
-  await addNewUserToOrg(userId);
-
+  // Recursiv's POST /api-keys auto-adds the new user as an org member when
+  // the org has `allow_public_signup=true` (set automatically by
+  // `provision_app` for customer apps). No client-side admin step needed.
   const apiKey = await createUserApiKey(token);
   setSessionCookie(apiKey);
   return {
-    id: userId,
+    id: data.user?.id ?? '',
     name: data.user?.name ?? input.name,
     email: data.user?.email ?? input.email,
     image: data.user?.image ?? null,
@@ -139,7 +144,6 @@ export async function signIn(input: { email: string; password: string }): Promis
   const token = data.token || data.session?.token;
   if (!token) throw new Error('Sign in response missing token.');
 
-  // Existing users are already org members, so no add-member step needed on sign-in.
   const apiKey = await createUserApiKey(token);
   setSessionCookie(apiKey);
   return {
