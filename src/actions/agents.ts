@@ -1,13 +1,13 @@
 'use server';
 
-import { getRecursiv } from '@/lib/recursiv';
+import { getAuthedSdk } from '@/lib/recursiv';
 
 export async function listAgents() {
-  const r = getRecursiv();
-  return r.agents.list({ limit: 20 });
+  const sdk = await getAuthedSdk();
+  return sdk.agents.list({ limit: 20 });
 }
 
 export async function chatWithAgent(agentId: string, message: string, conversationId?: string) {
-  const r = getRecursiv();
-  return r.agents.chat(agentId, { message, conversation_id: conversationId });
+  const sdk = await getAuthedSdk();
+  return sdk.agents.chat(agentId, { message, conversation_id: conversationId });
 }

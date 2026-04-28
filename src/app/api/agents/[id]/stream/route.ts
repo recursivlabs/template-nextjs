@@ -1,4 +1,4 @@
-import { getRecursiv } from '@/lib/recursiv';
+import { getAuthedSdk } from '@/lib/recursiv';
 
 export async function POST(
   request: Request,
@@ -6,13 +6,13 @@ export async function POST(
 ) {
   const { id } = await params;
   const { message, conversation_id } = await request.json();
-  const r = getRecursiv();
+  const sdk = await getAuthedSdk();
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of r.agents.chatStream(id, {
+        for await (const chunk of sdk.agents.chatStream(id, {
           message,
           conversation_id,
         })) {

@@ -1,16 +1,16 @@
 import Link from 'next/link';
-import { getRecursiv } from '@/lib/recursiv';
+import { tryAuthedSdk } from '@/lib/recursiv';
 
 export const dynamic = 'force-dynamic';
 
 async function getDashboardData() {
-  const r = getRecursiv();
+  const sdk = await tryAuthedSdk();
+  if (!sdk) return null;
   const [user, agents, posts] = await Promise.allSettled([
-    r.users.me(),
-    r.agents.list({ limit: 5 }),
-    r.posts.list({ limit: 5 }),
+    sdk.users.me(),
+    sdk.agents.list({ limit: 5 }),
+    sdk.posts.list({ limit: 5 }),
   ]);
-
   return {
     user: user.status === 'fulfilled' ? user.value.data : null,
     agentCount: agents.status === 'fulfilled' ? agents.value.data.length : 0,
@@ -23,126 +23,122 @@ async function getDashboardData() {
 
 const features = [
   {
+    href: '/notes',
+    title: 'Notes',
+    description: 'Postgres-backed notes via r.databases — your structured data lives here.',
+    badge: 'Database',
+  },
+  {
+    href: '/upload',
+    title: 'Files',
+    description: 'Direct-to-bucket uploads via r.storage presigned URLs.',
+    badge: 'Storage',
+  },
+  {
+    href: '/messages',
+    title: 'Messages',
+    description: 'DMs and group chats via r.chat. Plug in r.realtime for live updates.',
+    badge: 'Chat',
+  },
+  {
     href: '/agents',
-    title: 'Agent Chat',
-    description: 'Talk to your AI agents with streaming responses. Every conversation drives intelligent interactions.',
+    title: 'Agents',
+    description: 'Talk to AI agents with streaming responses via r.agents.',
     badge: 'AI',
   },
   {
     href: '/feed',
-    title: 'Social Feed',
-    description: 'Create posts, react, and browse the community feed. Build social features in minutes.',
+    title: 'Feed',
+    description: 'Social posts and reactions via r.posts.',
     badge: 'Social',
   },
   {
     href: '/sandbox',
-    title: 'Code Sandbox',
-    description: 'Execute TypeScript, JavaScript, or Python in a cloud sandbox. Test ideas instantly.',
+    title: 'Sandbox',
+    description: 'Run code in a cloud sandbox via r.sandbox.',
     badge: 'Compute',
   },
 ];
 
 export default async function HomePage() {
-  try {
-    const { user, agentCount, latestPost } = await getDashboardData();
+  const data = await getDashboardData();
 
-    return (
-      <div className="space-y-8">
-        {/* Welcome */}
-        <div>
-          <h1 className="text-3xl font-bold">
-            {user ? `Welcome, ${user.name}` : 'Welcome'}
-          </h1>
-          <p className="mt-1 text-[var(--muted)]">
-            Your app is connected to the Recursiv API. Start building.
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="text-2xl font-bold text-accent">{agentCount}</div>
-            <div className="text-xs text-[var(--muted)]">Agents</div>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="truncate text-2xl font-bold text-accent">
-              {latestPost ? latestPost.author.name : '--'}
-            </div>
-            <div className="text-xs text-[var(--muted)]">Latest post by</div>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="text-2xl font-bold text-accent">
-              {user ? '\u{2713}' : '\u{2717}'}
-            </div>
-            <div className="text-xs text-[var(--muted)]">API connected</div>
-          </div>
-        </div>
-
-        {/* Feature cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          {features.map((feature) => (
-            <Link
-              key={feature.href}
-              href={feature.href}
-              className="group rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 transition-colors hover:border-accent/30"
-            >
-              <div className="mb-3 inline-block rounded bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">
-                {feature.badge}
-              </div>
-              <h2 className="mb-1 text-lg font-semibold group-hover:text-accent transition-colors">
-                {feature.title}
-              </h2>
-              <p className="text-sm leading-relaxed text-[var(--muted)]">
-                {feature.description}
-              </p>
-            </Link>
-          ))}
-        </div>
-
-        {/* Quick start */}
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-5">
-          <h2 className="mb-3 text-lg font-semibold">Quick start</h2>
-          <pre className="overflow-x-auto rounded-lg bg-neutral-900 p-4 font-mono text-sm leading-relaxed text-neutral-300">
-{`import { Recursiv } from '@recursiv/sdk';
-
-const r = new Recursiv(); // reads RECURSIV_API_KEY from env
-
-// List posts
-const posts = await r.posts.list();
-
-// Chat with an agent
-const response = await r.agents.chat('agent-id', {
-  message: 'Hello!',
-});
-
-// Execute code in a sandbox
-const result = await r.sandbox.execute({
-  code: 'console.log("Hello!")',
-  language: 'typescript',
-});`}
-          </pre>
-        </div>
-      </div>
-    );
-  } catch {
+  if (!data) {
     return (
       <div className="space-y-6">
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-6">
-          <h2 className="mb-2 text-lg font-semibold text-amber-400">API key not configured</h2>
-          <p className="mb-4 text-sm text-[var(--muted)]">
-            Add your Recursiv API key to <code className="font-mono text-accent">.env</code> to get started:
-          </p>
-          <pre className="rounded-lg bg-neutral-900 p-4 font-mono text-sm text-neutral-300">
-            RECURSIV_API_KEY=sk_live_your_key_here
-          </pre>
-          <p className="mt-4 text-sm text-[var(--muted)]">
-            Get your API key at{' '}
-            <a href="https://recursiv.io/settings/api-keys" className="text-accent hover:underline">
-              recursiv.io/settings/api-keys
-            </a>
-          </p>
+        <h1 className="text-3xl font-bold">Welcome</h1>
+        <p className="text-[var(--muted)]">
+          Sign in or create an account to start using the app.
+        </p>
+        <div className="flex gap-3">
+          <Link
+            href="/sign-in"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/sign-up"
+            className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:bg-[var(--card)]"
+          >
+            Create account
+          </Link>
         </div>
       </div>
     );
   }
+
+  const { user, agentCount, latestPost } = data;
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold">
+          {user ? `Welcome, ${user.name}` : 'Welcome'}
+        </h1>
+        <p className="mt-1 text-[var(--muted)]">
+          Your app is connected to the Recursiv API. Start building.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+          <div className="text-2xl font-bold text-accent">{agentCount}</div>
+          <div className="text-xs text-[var(--muted)]">Agents</div>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+          <div className="truncate text-2xl font-bold text-accent">
+            {latestPost ? latestPost.author.name : '--'}
+          </div>
+          <div className="text-xs text-[var(--muted)]">Latest post by</div>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+          <div className="text-2xl font-bold text-accent">
+            {user ? '\u{2713}' : '\u{2717}'}
+          </div>
+          <div className="text-xs text-[var(--muted)]">Signed in</div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {features.map((feature) => (
+          <Link
+            key={feature.href}
+            href={feature.href}
+            className="group rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 transition-colors hover:border-accent/30"
+          >
+            <div className="mb-3 inline-block rounded bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">
+              {feature.badge}
+            </div>
+            <h2 className="mb-1 text-lg font-semibold group-hover:text-accent transition-colors">
+              {feature.title}
+            </h2>
+            <p className="text-sm leading-relaxed text-[var(--muted)]">
+              {feature.description}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 }

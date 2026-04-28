@@ -1,6 +1,6 @@
 'use server';
 
-import { getRecursiv } from './recursiv';
+import { getAuthedSdk } from './recursiv';
 
 const PROJECT_ID = process.env.RECURSIV_PROJECT_ID;
 const DB_NAME = 'app-db';
@@ -16,8 +16,8 @@ let _ensured = false;
 export async function ensureDb(): Promise<void> {
   if (_ensured) return;
   if (!PROJECT_ID) throw new Error('RECURSIV_PROJECT_ID env var is not set.');
-  const r = getRecursiv();
-  await r.databases.ensure({ project_id: PROJECT_ID, name: DB_NAME });
+  const sdk = await getAuthedSdk();
+  await sdk.databases.ensure({ project_id: PROJECT_ID, name: DB_NAME });
   _ensured = true;
 }
 
@@ -27,8 +27,8 @@ export async function query<T = Record<string, unknown>>(
   params?: unknown[],
 ): Promise<T[]> {
   await ensureDb();
-  const r = getRecursiv();
-  const { data } = await r.databases.query({
+  const sdk = await getAuthedSdk();
+  const { data } = await sdk.databases.query({
     project_id: PROJECT_ID!,
     database_name: DB_NAME,
     sql,
