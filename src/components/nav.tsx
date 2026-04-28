@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils';
 
 const links = [
   { href: '/', label: 'Home' },
+  { href: '/notes', label: 'Notes' },
+  { href: '/upload', label: 'Files' },
+  { href: '/messages', label: 'Messages' },
   { href: '/agents', label: 'Agents' },
   { href: '/feed', label: 'Feed' },
   { href: '/sandbox', label: 'Sandbox' },
