@@ -1,4 +1,4 @@
-'use server';
+import 'server-only';
 
 import { Recursiv } from '@recursiv/sdk';
 import { cookies } from 'next/headers';
