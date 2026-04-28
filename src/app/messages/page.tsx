@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { listConversations } from '@/actions/chat';
 
+export const dynamic = 'force-dynamic';
+
 export default async function MessagesPage() {
   const conversations = await listConversations();
   return (

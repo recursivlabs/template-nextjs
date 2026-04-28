@@ -1,6 +1,8 @@
 import { listPosts } from '@/actions/posts';
 import { PostFeed } from '@/components/post-feed';
 
+export const dynamic = 'force-dynamic';
+
 export default async function FeedPage() {
   try {
     const res = await listPosts(0);

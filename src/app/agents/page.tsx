@@ -1,6 +1,8 @@
 import { listAgents } from '@/actions/agents';
 import { AgentChat } from '@/components/agent-chat';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AgentsPage() {
   try {
     const res = await listAgents();

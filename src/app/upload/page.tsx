@@ -1,6 +1,8 @@
 import { listMyFiles } from '@/actions/upload';
 import { Uploader } from '@/components/uploader';
 
+export const dynamic = 'force-dynamic';
+
 export default async function UploadPage() {
   const files = await listMyFiles();
   return (

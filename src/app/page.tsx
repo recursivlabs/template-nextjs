@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getRecursiv } from '@/lib/recursiv';
 
+export const dynamic = 'force-dynamic';
+
 async function getDashboardData() {
   const r = getRecursiv();
   const [user, agents, posts] = await Promise.allSettled([

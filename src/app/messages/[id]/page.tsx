@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { loadMessages } from '@/actions/chat';
 import { ChatThread } from '@/components/chat-thread';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ConversationPage({ params }: { params: { id: string } }) {
   const messages = await loadMessages(params.id);
   return (

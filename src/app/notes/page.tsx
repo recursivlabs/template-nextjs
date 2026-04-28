@@ -2,6 +2,8 @@ import { listNotes } from '@/actions/notes';
 import { NoteComposer } from '@/components/note-composer';
 import { NoteList } from '@/components/note-list';
 
+export const dynamic = 'force-dynamic';
+
 export default async function NotesPage() {
   const notes = await listNotes();
   return (
