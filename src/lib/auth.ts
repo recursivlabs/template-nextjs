@@ -5,11 +5,21 @@ import { redirect } from 'next/navigation';
 import { Recursiv } from '@recursiv/sdk';
 import { createAuthedSdk, getSessionKey, SESSION_COOKIE } from './recursiv';
 
-const ORG_ID = process.env.RECURSIV_ORG_ID;
+const PROJECT_ID = process.env.RECURSIV_PROJECT_ID;
 const BASE_URL = process.env.RECURSIV_API_BASE_URL || 'https://api.recursiv.io/api/v1';
 const BASE_ORIGIN = BASE_URL.replace(/\/api\/v1$/, '');
 
 // Scopes the per-user API key gets at sign-up / sign-in.
+//
+// AUTH MODEL (post-Project-Membership rollout):
+// Each user gets a project-scoped api-key (api_key.project_id is set, NOT
+// api_key.organization_id). They become a `project_member` of this project,
+// not an `organization_member` of the project's owning org. This keeps app
+// customers separate from the team workspace — the org's `/settings/team`
+// shows teammates only, not customers.
+//
+// See packages/server/src/db/CLAUDE.md in the Recursiv platform repo for
+// the data model.
 //
 // SECURITY NOTE on `databases:*` and `storage:*`:
 // These are project-level scopes. With them on a user's key, the user could
@@ -86,7 +96,11 @@ async function createUserApiKey(sessionToken: string): Promise<string> {
     {
       name: `app-session-${Date.now()}`,
       scopes: USER_KEY_SCOPES,
-      organizationId: ORG_ID,
+      // Project-scoped key: caller becomes a project_member of this project
+      // (not an organization_member of the project's owning org). The project
+      // must have project_settings.allow_public_signup=true; provision_app
+      // sets this automatically on new projects.
+      projectId: PROJECT_ID,
     },
     {
       Authorization: `Bearer ${sessionToken}`,
@@ -104,7 +118,7 @@ async function createUserApiKey(sessionToken: string): Promise<string> {
 }
 
 export async function signUp(input: { name: string; email: string; password: string }): Promise<SessionUser> {
-  if (!ORG_ID) throw new Error('RECURSIV_ORG_ID env var is not set.');
+  if (!PROJECT_ID) throw new Error('RECURSIV_PROJECT_ID env var is not set.');
 
   const res = await authedFetch('/api/auth/sign-up/email', input);
   if (!res.ok) {
@@ -117,9 +131,10 @@ export async function signUp(input: { name: string; email: string; password: str
   const token = data.token || data.session?.token;
   if (!token) throw new Error('Sign up response missing token.');
 
-  // Recursiv's POST /api-keys auto-adds the new user as an org member when
-  // the org has `allow_public_signup=true` (set automatically by
-  // `provision_app` for customer apps). No client-side admin step needed.
+  // Recursiv's POST /api-keys auto-adds the new user as a project_member when
+  // the project has `allow_public_signup=true` on project_settings (set
+  // automatically by `provision_app` for customer apps). No client-side admin
+  // step needed.
   const apiKey = await createUserApiKey(token);
   setSessionCookie(apiKey);
   return {
@@ -131,7 +146,7 @@ export async function signUp(input: { name: string; email: string; password: str
 }
 
 export async function signIn(input: { email: string; password: string }): Promise<SessionUser> {
-  if (!ORG_ID) throw new Error('RECURSIV_ORG_ID env var is not set.');
+  if (!PROJECT_ID) throw new Error('RECURSIV_PROJECT_ID env var is not set.');
 
   const res = await authedFetch('/api/auth/sign-in/email', input);
   if (!res.ok) {
